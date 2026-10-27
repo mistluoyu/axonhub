@@ -71,7 +71,7 @@ func TestCodexOutbound_StreamAcceptHeader(t *testing.T) {
 	assert.Equal(t, "text/event-stream", headers.Get("Accept"))
 	assert.Equal(t, "application/json", headers.Get("Content-Type"))
 	assert.Equal(t, AxonHubOriginator, headers.Get("Originator"))
-	assert.Equal(t, "axonhub/1.0", headers.Get("User-Agent"))
+	assert.Equal(t, codexDefaultUserAgent, headers.Get("User-Agent"))
 	assert.Equal(t, testChatAccountID, headers.Get("Chatgpt-Account-Id"))
 	assert.Equal(t, "Bearer "+accessToken, headers.Get("Authorization"))
 	assert.Equal(t, "ts-1", headers.Get(TurnStateHeader))
@@ -123,6 +123,21 @@ func TestCodexOutbound_RejectsPassThroughBodyWithTokenLimitFields(t *testing.T) 
 	}
 }
 
+func TestCodexOutbound_RejectsWebSocketPassThroughBodyWithTokenLimitFields(t *testing.T) {
+	for _, field := range []string{"max_output_tokens", "max_completion_tokens", "max_tokens"} {
+		t.Run(field, func(t *testing.T) {
+			llmReq := &llm.Request{
+				APIFormat: llm.APIFormatOpenAIResponseWebSocket,
+				RawRequest: &httpclient.Request{
+					Body: []byte(`{"model":"gpt-5.4-mini","input":"hi","stream":true,"` + field + `":12000}`),
+				},
+			}
+
+			require.False(t, (&OutboundTransformer{}).AllowPassThroughBody(context.Background(), llmReq, &httpclient.Request{}))
+		})
+	}
+}
+
 func TestCodexOutbound_AllowsPassThroughBodyWithoutTokenLimitFields(t *testing.T) {
 	outbound := &OutboundTransformer{}
 	llmReq := &llm.Request{
@@ -135,7 +150,11 @@ func TestCodexOutbound_AllowsPassThroughBodyWithoutTokenLimitFields(t *testing.T
 	require.True(t, outbound.AllowPassThroughBody(context.Background(), llmReq, &httpclient.Request{}))
 }
 
-func TestCodexOutbound_StreamAllowsDownstreamIdentityOverrides(t *testing.T) {
+// TestCodexOutbound_StreamAllowsOriginatorOverrideButNotClientUA pins the
+// split of ownership: the inbound Originator is still honoured, but the client
+// User-Agent is never copied upstream. Client-UA forwarding is opt-in via the
+// orchestrator user-agent pass-through switch.
+func TestCodexOutbound_StreamAllowsOriginatorOverrideButNotClientUA(t *testing.T) {
 	ctx := context.Background()
 	accessToken := testAccessTokenWithAccountID(t)
 	capturedHeaders := make(chan http.Header, 1)
@@ -177,17 +196,17 @@ func TestCodexOutbound_StreamAllowsDownstreamIdentityOverrides(t *testing.T) {
 	}
 
 	assert.Equal(t, legacyCodexOriginator(), headers.Get("Originator"))
-	assert.Equal(t, legacyCodexUserAgent(), headers.Get("User-Agent"))
-	assert.Contains(t, strings.ToLower(headers.Get("User-Agent")), legacyCodexOriginator())
+	assert.Equal(t, codexDefaultUserAgent, headers.Get("User-Agent"))
+	assert.NotEqual(t, legacyCodexUserAgent(), headers.Get("User-Agent"))
 	assert.Equal(t, testChatAccountID, headers.Get("Chatgpt-Account-Id"))
 	assert.Equal(t, "Bearer "+accessToken, headers.Get("Authorization"))
 }
 
-func TestCodexOutbound_ImageGenerationRequestUsesResponsesImageTool(t *testing.T) {
+func TestCodexOutbound_ImageGenerationRequestUsesNativeImagesEndpoint(t *testing.T) {
 	ctx := context.Background()
 	accessToken := testAccessTokenWithAccountID(t)
 
-	outbound, err := NewOutboundTransformer(Params{
+	outbound, err := NewImageOutboundTransformer(ImageParams{
 		BaseURL: "https://chatgpt.com/backend-api/codex#",
 		TokenProvider: staticTokenGetter{
 			creds: &oauth.OAuthCredentials{
@@ -198,53 +217,34 @@ func TestCodexOutbound_ImageGenerationRequestUsesResponsesImageTool(t *testing.T
 	})
 	require.NoError(t, err)
 
-	partialImages := int64(2)
 	req, err := outbound.TransformRequest(ctx, &llm.Request{
 		Model:       "gpt-image-2",
 		RequestType: llm.RequestTypeImage,
 		APIFormat:   llm.APIFormatOpenAIImageGeneration,
 		RawRequest:  &httpclient.Request{Headers: http.Header{}},
 		Image: &llm.ImageRequest{
-			Prompt:        "draw a circuit board city",
-			Size:          "1536x864",
-			Quality:       "high",
-			OutputFormat:  "webp",
-			PartialImages: &partialImages,
+			Prompt:       "draw a circuit board city",
+			Size:         "1536x864",
+			Quality:      "high",
+			OutputFormat: "webp",
 		},
 	})
 	require.NoError(t, err)
 
 	require.Equal(t, llm.RequestTypeImage.String(), req.RequestType)
 	require.Equal(t, llm.APIFormatOpenAIImageGeneration.String(), req.APIFormat)
-	require.Equal(t, "text/event-stream", req.Headers.Get("Accept"))
+	require.Equal(t, "https://chatgpt.com/backend-api/codex/images/generations", req.URL)
+	require.Equal(t, "application/json", req.Headers.Get("Accept"))
 	require.Equal(t, accessToken, req.Auth.APIKey)
-
-	var payload responses.Request
-	require.NoError(t, json.Unmarshal(req.Body, &payload))
-	require.Equal(t, defaultImageMainModel, payload.Model)
-	require.NotNil(t, payload.Stream)
-	require.True(t, *payload.Stream)
-	require.Len(t, payload.Tools, 1)
-	require.Equal(t, "image_generation", payload.Tools[0].Type)
-	require.Equal(t, "gpt-image-2", payload.Tools[0].Model)
-	require.Equal(t, "generate", payload.Tools[0].Action)
-	require.Equal(t, "1536x864", payload.Tools[0].Size)
-	require.Equal(t, "high", payload.Tools[0].Quality)
-	require.Equal(t, "webp", payload.Tools[0].OutputFormat)
-	require.Equal(t, partialImages, *payload.Tools[0].PartialImages)
-	require.NotNil(t, payload.ToolChoice)
-	require.Equal(t, "required", *payload.ToolChoice.Mode)
-	require.Len(t, payload.Input.Items, 1)
-	require.Len(t, payload.Input.Items[0].Content.Items, 1)
-	require.Equal(t, "input_text", payload.Input.Items[0].Content.Items[0].Type)
-	require.Equal(t, "draw a circuit board city", *payload.Input.Items[0].Content.Items[0].Text)
-	require.Equal(t, "You are a helpful assistant that can generate images based on user requests. Must use the image generation tool.", payload.Instructions)
+	require.Equal(t, "gpt-image-2", gjson.GetBytes(req.Body, "model").String())
+	require.Equal(t, "draw a circuit board city", gjson.GetBytes(req.Body, "prompt").String())
+	require.False(t, gjson.GetBytes(req.Body, "tools").Exists())
 }
 
-func TestCodexOutbound_ImageEditRequestUsesResponsesImageTool(t *testing.T) {
+func TestCodexOutbound_ImageEditRequestUsesNativeImagesEndpoint(t *testing.T) {
 	ctx := context.Background()
 
-	outbound, err := NewOutboundTransformer(Params{
+	outbound, err := NewImageOutboundTransformer(ImageParams{
 		BaseURL: "https://chatgpt.com/backend-api/codex#",
 		TokenProvider: staticTokenGetter{
 			creds: &oauth.OAuthCredentials{
@@ -279,21 +279,13 @@ func TestCodexOutbound_ImageEditRequestUsesResponsesImageTool(t *testing.T) {
 
 	require.Equal(t, llm.RequestTypeImage.String(), req.RequestType)
 	require.Equal(t, llm.APIFormatOpenAIImageEdit.String(), req.APIFormat)
-
-	var payload responses.Request
-	require.NoError(t, json.Unmarshal(req.Body, &payload))
-	require.Equal(t, defaultImageMainModel, payload.Model)
-	require.Len(t, payload.Tools, 1)
-	require.Equal(t, "gpt-image-2", payload.Tools[0].Model)
-	require.Equal(t, "edit", payload.Tools[0].Action)
-	require.Equal(t, "high", payload.Tools[0].InputFidelity)
-	require.Equal(t, "data:image/png;base64,bWFzay1kYXRh", payload.Tools[0].InputImageMask["image_url"])
-	require.Len(t, payload.Input.Items, 1)
-	require.Len(t, payload.Input.Items[0].Content.Items, 2)
-	require.Equal(t, "input_text", payload.Input.Items[0].Content.Items[0].Type)
-	require.Equal(t, "input_image", payload.Input.Items[0].Content.Items[1].Type)
-	require.Equal(t, "data:image/jpeg;base64,anBlZy1kYXRh", *payload.Input.Items[0].Content.Items[1].ImageURL)
-	require.Equal(t, "You are a helpful assistant that can generate images based on user requests. Must use the image generation tool.", payload.Instructions)
+	require.Equal(t, "https://chatgpt.com/backend-api/codex/images/edits", req.URL)
+	require.Equal(t, "application/json", req.Headers.Get("Content-Type"))
+	require.Equal(t, "gpt-image-2", gjson.GetBytes(req.Body, "model").String())
+	require.Equal(t, "high", gjson.GetBytes(req.Body, "input_fidelity").String())
+	require.Equal(t, "data:image/png;base64,bWFzay1kYXRh", gjson.GetBytes(req.Body, "mask.image_url").String())
+	require.Equal(t, "data:image/png;base64,anBlZy1kYXRh", gjson.GetBytes(req.Body, "images.0.image_url").String())
+	require.False(t, gjson.GetBytes(req.Body, "tools").Exists())
 }
 
 func TestCodexOutbound_TransformRequestStripsUserField(t *testing.T) {
@@ -326,37 +318,6 @@ func TestCodexOutbound_TransformRequestStripsUserField(t *testing.T) {
 	require.NoError(t, json.Unmarshal(req.Body, &payload))
 	_, hasUser := payload["user"]
 	assert.False(t, hasUser, "Codex backend rejects the user field with a 400 Bad Request; it must not be sent upstream")
-}
-
-func TestCodexOutbound_TransformImageResponse(t *testing.T) {
-	upstream := &responses.Response{
-		ID:        "resp_image",
-		CreatedAt: 1760000000,
-		Model:     defaultImageMainModel,
-		Output: []responses.Item{
-			{
-				Type:   "image_generation_call",
-				Result: lo.ToPtr("iVBORw0KGgo="),
-			},
-		},
-	}
-
-	resp, err := responses.BuildImageResponse(upstream, map[string]any{
-		"codex_image_output_format": "png",
-		"codex_image_quality":       "high",
-		"codex_image_size":          "1024x1024",
-		"codex_image_model":         "gpt-image-2",
-	})
-	require.NoError(t, err)
-
-	require.Equal(t, llm.RequestTypeImage, resp.RequestType)
-	require.Equal(t, "gpt-image-2", resp.Model)
-	require.NotNil(t, resp.Image)
-	require.Equal(t, "png", resp.Image.OutputFormat)
-	require.Equal(t, "high", resp.Image.Quality)
-	require.Equal(t, "1024x1024", resp.Image.Size)
-	require.Len(t, resp.Image.Data, 1)
-	require.Equal(t, "iVBORw0KGgo=", resp.Image.Data[0].B64JSON)
 }
 
 func TestCodexOutbound_CustomizeExecutorUsesCurrentExecutor(t *testing.T) {
@@ -894,71 +855,6 @@ func TestCodexOutbound_PreservesMinimalCompatTransforms(t *testing.T) {
 
 	assert.NotContains(t, string(hreq.Body), "You are a coding agent running in the Codex CLI")
 	assert.NotContains(t, string(hreq.Body), "You are Codex")
-}
-
-func TestCodexOutbound_FastModelAlias(t *testing.T) {
-	tests := []struct {
-		name          string
-		model         string
-		serviceTier   *string
-		upstreamModel string
-		wantTier      string
-		wantHint      string
-	}{
-		{
-			name:          "fast alias selects priority",
-			model:         "gpt-6-sol-fast",
-			upstreamModel: "gpt-6-sol",
-			wantTier:      "priority",
-			wantHint:      "model=gpt-6-sol;tier=priority",
-		},
-		{
-			name:          "explicit tier takes precedence",
-			model:         "gpt-6-sol-fast",
-			serviceTier:   lo.ToPtr("flex"),
-			upstreamModel: "gpt-6-sol",
-			wantTier:      "flex",
-			wantHint:      "model=gpt-6-sol;tier=flex",
-		},
-		{
-			name:          "ordinary model stays ordinary",
-			model:         "gpt-6-sol",
-			upstreamModel: "gpt-6-sol",
-		},
-		{
-			name:          "auto review has no fast behavior",
-			model:         "codex-auto-review",
-			upstreamModel: "codex-auto-review",
-		},
-		{
-			name:          "unsupported fast suffix stays unchanged",
-			model:         "codex-auto-review-fast",
-			upstreamModel: "codex-auto-review-fast",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			outbound := newTestCodexOutbound(t)
-			hreq, err := outbound.TransformRequest(context.Background(), &llm.Request{
-				Model:       tt.model,
-				Messages:    []llm.Message{{Role: "user", Content: llm.MessageContent{Content: lo.ToPtr("Hello")}}},
-				ServiceTier: tt.serviceTier,
-			})
-			require.NoError(t, err)
-
-			body := decodeCodexRequestBody(t, hreq)
-			assert.Equal(t, tt.upstreamModel, body["model"])
-			if tt.wantTier == "" {
-				assert.NotContains(t, body, "service_tier")
-				assert.Empty(t, hreq.Headers.Get(codexRoutingHintHeader))
-				return
-			}
-
-			assert.Equal(t, tt.wantTier, body["service_tier"])
-			assert.Equal(t, tt.wantHint, hreq.Headers.Get(codexRoutingHintHeader))
-		})
-	}
 }
 
 func TestCodexOutbound_AppliesReasoningDefaultsWhenMissing(t *testing.T) {

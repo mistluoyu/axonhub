@@ -33,6 +33,7 @@ import {
   AiHubMix,
   OpenCode,
   Groq,
+  Cloudflare,
 } from '@lobehub/icons';
 import { AtlasCloudIcon } from '../components/atlas-cloud-icon';
 import { CommandCodeIcon } from '../components/commandcode-icon';
@@ -42,6 +43,7 @@ import { TypeSafeIcon } from '../components/typesafe-icon';
 import { NanoGPTIcon } from '../components/nanogpt-icon';
 import { BURNCLOUD_DEFAULT_MODELS } from './burncloud-models';
 import { ApiFormat, ChannelType } from './schema';
+import { isSuggestedModel } from '../../models/data/model-suggestions';
 
 export const OPENAI_CHAT_COMPLETIONS: ApiFormat = 'openai/chat_completions';
 export const OPENAI_RESPONSES: ApiFormat = 'openai/responses';
@@ -128,21 +130,7 @@ export const CHANNEL_CONFIGS: Record<ChannelType, ChannelConfig> = {
   codex: {
     channelType: 'codex',
     baseURL: 'https://chatgpt.com/backend-api/codex#',
-    defaultModels: [
-      'gpt-5.6-sol',
-      'gpt-5.6-sol-fast',
-      'gpt-5.6-terra',
-      'gpt-5.6-terra-fast',
-      'gpt-5.6-luna',
-      'gpt-5.6-luna-fast',
-      'gpt-6-astra',
-      'gpt-6-astra-fast',
-      'gpt-6-sol',
-      'gpt-6-sol-fast',
-      'gpt-6-luna',
-      'gpt-6-luna-fast',
-      'codex-auto-review',
-    ],
+    defaultModels: ['gpt-6.1-sol', 'gpt-6-luna', 'gpt-6-astra'],
     apiFormat: OPENAI_RESPONSES,
     color: 'bg-[#32746D] text-white border-[#32746D]',
     icon: OpenAI,
@@ -150,17 +138,7 @@ export const CHANNEL_CONFIGS: Record<ChannelType, ChannelConfig> = {
   antigravity: {
     channelType: 'antigravity',
     baseURL: 'https://daily-cloudcode-pa.sandbox.googleapis.com',
-    defaultModels: [
-      'gemini-3-pro',
-      'gemini-3-flash',
-      'gemini-2.5-flash',
-      'gemini-2.5-flash-lite',
-      'claude-sonnet-4-5',
-      'claude-sonnet-4-5-thinking',
-      'claude-opus-4-5-thinking',
-      'gemini-3-pro-image',
-      'gpt-oss-120b-medium',
-    ],
+    defaultModels: [], // Available models are discovered using the account's OAuth credentials.
     apiFormat: GEMINI_CONTENTS,
     color: 'bg-green-100 text-green-800 border-green-200',
     icon: Google,
@@ -224,7 +202,7 @@ export const CHANNEL_CONFIGS: Record<ChannelType, ChannelConfig> = {
   minimax: {
     channelType: 'minimax',
     baseURL: 'https://api.minimaxi.com/v1',
-    defaultModels: ['MiniMax-M3', 'MiniMax-M2.7', 'MiniMax-M2.7-highspeed'],
+    defaultModels: ['MiniMax-M3.1-Flash', 'MiniMax-M3'],
     apiFormat: OPENAI_CHAT_COMPLETIONS,
     color: 'bg-red-100 text-red-800 border-red-200',
     icon: Minimax,
@@ -232,7 +210,7 @@ export const CHANNEL_CONFIGS: Record<ChannelType, ChannelConfig> = {
   minimax_anthropic: {
     channelType: 'minimax_anthropic',
     baseURL: 'https://api.minimaxi.com/anthropic',
-    defaultModels: ['MiniMax-M3', 'MiniMax-M2.7', 'MiniMax-M2.7-highspeed'],
+    defaultModels: ['MiniMax-M3.1-Flash', 'MiniMax-M3'],
     apiFormat: ANTHROPIC_MESSAGES,
     color: 'bg-red-100 text-red-800 border-red-200',
     icon: Minimax,
@@ -587,6 +565,62 @@ export const CHANNEL_CONFIGS: Record<ChannelType, ChannelConfig> = {
     color: 'bg-blue-100 text-blue-800 border-blue-200',
     icon: Bailian,
   },
+  bailian_responses: {
+    channelType: 'bailian_responses',
+    baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    // Models with full OpenAI Responses API compatibility (built-in tools / agent capabilities), in the order
+    // listed by https://help.aliyun.com/zh/model-studio/compatibility-with-openai-responses-api.
+    // Other Bailian text-generation models only get basic compatibility (agent capabilities are limited),
+    // so they are not preselected here and can be added manually.
+    defaultModels: [
+      // Qwen
+      'qwen3.8-max',
+      'qwen3.8-max-0902',
+      'qwen3.8-flash',
+      'qwen3.8-2.4t-a95b',
+      'qwen3.8-27b',
+      'qwen3.8-omni-flash',
+      'qwen3.7-max',
+      'qwen3.7-max-2026-05-20',
+      'qwen3.7-max-2026-06-08',
+      'qwen3.7-max-2026-05-17',
+      'qwen3.7-max-preview',
+      'qwen3-max',
+      'qwen3-max-2026-01-23',
+      'qwen3.7-plus',
+      'qwen3.7-plus-2026-05-26',
+      'qwen3.6-plus',
+      'qwen3.6-plus-2026-04-02',
+      'qwen3.5-plus',
+      'qwen3.5-plus-2026-04-20',
+      'qwen3.5-plus-2026-02-15',
+      'qwen3.7-flash',
+      'qwen3.7-flash-2026-07-15',
+      'qwen3.6-flash',
+      'qwen3.6-flash-2026-04-16',
+      'qwen3.5-flash',
+      'qwen3.5-flash-2026-02-23',
+      'qwen3.6-35b-a3b',
+      'qwen3.5-397b-a17b',
+      'qwen3.5-122b-a10b',
+      'qwen3.5-27b',
+      'qwen3.5-35b-a3b',
+      // DeepSeek
+      'deepseek-v4.1-flash',
+      'deepseek-v4-pro',
+      'deepseek-v4-pro-0813',
+      'deepseek-v4-flash',
+      'deepseek-v4-flash-0731',
+      // GLM
+      'glm-5.3',
+      'glm-5.2',
+      // Kimi
+      'kimi-k3',
+    ],
+    apiFormat: OPENAI_RESPONSES,
+    color: 'bg-blue-100 text-blue-800 border-blue-200',
+    icon: Bailian,
+  },
   bailian_anthropic: {
     channelType: 'bailian_anthropic',
     baseURL: 'https://dashscope.aliyuncs.com/apps/anthropic',
@@ -664,6 +698,21 @@ export const CHANNEL_CONFIGS: Record<ChannelType, ChannelConfig> = {
     apiFormat: TYPESAFE_SYSTEMONE,
     color: 'bg-blue-100 text-blue-800 border-blue-200',
     icon: TypeSafeIcon,
+  },
+  cloudflare: {
+    channelType: 'cloudflare',
+    baseURL: 'https://api.cloudflare.com/client/v4/accounts/<account_id>/ai',
+    // Only models the default endpoints (chat completions + embeddings) can
+    // serve: decision models need the System One endpoint and a model protocol
+    // pin, so they are added by hand instead of being preset here.
+    defaultModels: [
+      '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+      '@cf/meta/llama-3.1-8b-instruct',
+      '@cf/baai/bge-m3',
+    ],
+    apiFormat: OPENAI_CHAT_COMPLETIONS,
+    color: 'bg-orange-100 text-orange-800 border-orange-200',
+    icon: Cloudflare,
   },
   github: {
     channelType: 'github',
@@ -897,7 +946,7 @@ export const getDefaultBaseURL = (channelType: ChannelType): string => {
  * Get default models for a channel type
  */
 export const getDefaultModels = (channelType: ChannelType): string[] => {
-  return CHANNEL_CONFIGS[channelType]?.defaultModels || [];
+  return (CHANNEL_CONFIGS[channelType]?.defaultModels || []).filter(isSuggestedModel);
 };
 
 /**
@@ -934,6 +983,7 @@ export type Provider =
   | 'bailian'
   | 'jina'
   | 'typesafe'
+  | 'cloudflare'
   | 'github'
   | 'github_copilot'
   | 'cerebras'
@@ -998,10 +1048,12 @@ export const CHANNEL_TYPE_TO_PROVIDER: Record<ChannelType, Provider> = {
   burncloud: 'burncloud',
   modelscope: 'modelscope',
   bailian: 'bailian',
+  bailian_responses: 'bailian',
   bailian_anthropic: 'bailian',
   moonshot_coding: 'moonshot',
   jina: 'jina',
   typesafe: 'typesafe',
+  cloudflare: 'cloudflare',
   github: 'github',
   github_copilot: 'github_copilot',
   codex: 'codex',

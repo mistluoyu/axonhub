@@ -97,7 +97,11 @@ func RequestFromLLM(ctx context.Context, r *llm.Request, reasoningField Reasonin
 	}
 
 	if len(req.Tools) == 0 {
+		// Some upstreams reject parallel_tool_calls and tool_choice when no
+		// tools are sent. Omitting tool_choice is equivalent to the default
+		// "auto", so drop both.
 		req.ParallelToolCalls = nil
+		req.ToolChoice = nil
 	}
 
 	return req
@@ -507,24 +511,31 @@ func (c Choice) ToLLMChoice() llm.Choice {
 		choice.Delta = &delta
 	}
 
-	if c.Logprobs != nil {
-		choice.Logprobs = &llm.LogprobsContent{
-			Content: lo.Map(c.Logprobs.Content, func(t TokenLogprob, _ int) llm.TokenLogprob {
-				return llm.TokenLogprob{
-					Token:   t.Token,
-					Logprob: t.Logprob,
-					Bytes:   t.Bytes,
-					TopLogprobs: lo.Map(t.TopLogprobs, func(tl TopLogprob, _ int) llm.TopLogprob {
-						return llm.TopLogprob{
-							Token:   tl.Token,
-							Logprob: tl.Logprob,
-							Bytes:   tl.Bytes,
-						}
-					}),
-				}
-			}),
-		}
-	}
+	choice.Logprobs = toLLMLogprobs(c.Logprobs)
 
 	return choice
+}
+
+// toLLMLogprobs converts OpenAI Logprobs to unified llm.LogprobsContent.
+func toLLMLogprobs(lp *Logprobs) *llm.LogprobsContent {
+	if lp == nil {
+		return nil
+	}
+
+	return &llm.LogprobsContent{
+		Content: lo.Map(lp.Content, func(t TokenLogprob, _ int) llm.TokenLogprob {
+			return llm.TokenLogprob{
+				Token:   t.Token,
+				Logprob: t.Logprob,
+				Bytes:   t.Bytes,
+				TopLogprobs: lo.Map(t.TopLogprobs, func(tl TopLogprob, _ int) llm.TopLogprob {
+					return llm.TopLogprob{
+						Token:   tl.Token,
+						Logprob: tl.Logprob,
+						Bytes:   tl.Bytes,
+					}
+				}),
+			}
+		}),
+	}
 }

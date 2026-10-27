@@ -92,9 +92,12 @@ func TestDefaultEndpointsForChannelType_UseLLMAPIFormatValues(t *testing.T) {
 			expected: []string{llm.APIFormatOpenAIChatCompletion.String()},
 		},
 		{
-			name:     "minimax exposes chat only",
-			typ:      channel.TypeMinimax,
-			expected: []string{llm.APIFormatOpenAIChatCompletion.String()},
+			name: "minimax exposes chat and image generation",
+			typ:  channel.TypeMinimax,
+			expected: []string{
+				llm.APIFormatOpenAIChatCompletion.String(),
+				llm.APIFormatOpenAIImageGeneration.String(),
+			},
 		},
 		{
 			name:     "xiaomi exposes chat only",
@@ -102,8 +105,13 @@ func TestDefaultEndpointsForChannelType_UseLLMAPIFormatValues(t *testing.T) {
 			expected: []string{llm.APIFormatOpenAIChatCompletion.String()},
 		},
 		{
-			name:     "nanogpt responses defaults to responses",
+			name:     "nanogpt responses defaults to responses only",
 			typ:      channel.TypeNanogptResponses,
+			expected: []string{llm.APIFormatOpenAIResponse.String()},
+		},
+		{
+			name:     "bailian responses defaults to responses only",
+			typ:      channel.TypeBailianResponses,
 			expected: []string{llm.APIFormatOpenAIResponse.String()},
 		},
 		{
@@ -115,7 +123,7 @@ func TestDefaultEndpointsForChannelType_UseLLMAPIFormatValues(t *testing.T) {
 			},
 		},
 		{
-			name:     "xai responses defaults to responses",
+			name:     "xai responses defaults to responses only",
 			typ:      channel.TypeXaiResponses,
 			expected: []string{llm.APIFormatOpenAIResponse.String()},
 		},
@@ -125,10 +133,11 @@ func TestDefaultEndpointsForChannelType_UseLLMAPIFormatValues(t *testing.T) {
 			expected: []string{llm.APIFormatOpenAIResponse.String()},
 		},
 		{
-			name: "codex exposes responses, alpha search, plus image generation and edit",
+			name: "codex exposes HTTP and WS responses, alpha search, plus image generation and edit",
 			typ:  channel.TypeCodex,
 			expected: []string{
 				llm.APIFormatOpenAIResponse.String(),
+				llm.APIFormatOpenAIResponseWebSocket.String(),
 				llm.APIFormatOpenAIAlphaSearch.String(),
 				llm.APIFormatOpenAIImageGeneration.String(),
 				llm.APIFormatOpenAIImageEdit.String(),

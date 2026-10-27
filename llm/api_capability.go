@@ -8,11 +8,12 @@ func CapableAPIFormats(requestType RequestType) map[string]struct{} {
 	switch requestType {
 	case RequestTypeChat:
 		return map[string]struct{}{
-			APIFormatOpenAIChatCompletion.String(): {},
-			APIFormatOpenAIResponse.String():       {},
-			APIFormatAnthropicMessage.String():     {},
-			APIFormatGeminiContents.String():       {},
-			APIFormatOllamaChat.String():           {},
+			APIFormatOpenAIChatCompletion.String():    {},
+			APIFormatOpenAIResponse.String():          {},
+			APIFormatOpenAIResponseWebSocket.String(): {},
+			APIFormatAnthropicMessage.String():        {},
+			APIFormatGeminiContents.String():          {},
+			APIFormatOllamaChat.String():              {},
 		}
 	case RequestTypeCompact:
 		return map[string]struct{}{
@@ -35,6 +36,10 @@ func CapableAPIFormats(requestType RequestType) map[string]struct{} {
 	case RequestTypeAlphaSearch:
 		return map[string]struct{}{
 			APIFormatOpenAIAlphaSearch.String(): {},
+		}
+	case RequestTypeDecisions:
+		return map[string]struct{}{
+			APIFormatOpenAIDecisions.String(): {},
 		}
 	case RequestTypeImage:
 		return map[string]struct{}{

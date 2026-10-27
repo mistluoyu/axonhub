@@ -33,6 +33,7 @@ import {
   Ollama,
   OpenCode,
   Groq,
+  Cloudflare,
 } from '@lobehub/icons';
 import { AtlasCloudIcon } from '../components/atlas-cloud-icon';
 import { CommandCodeIcon } from '../components/commandcode-icon';
@@ -169,6 +170,12 @@ export const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
     color: 'bg-blue-100 text-blue-800 border-blue-200',
     channelTypes: ['typesafe'],
   },
+  cloudflare: {
+    provider: 'cloudflare',
+    icon: Cloudflare,
+    color: 'bg-orange-100 text-orange-800 border-orange-200',
+    channelTypes: ['cloudflare'],
+  },
   xai: {
     provider: 'xai',
     icon: XAI,
@@ -233,7 +240,7 @@ export const PROVIDER_CONFIGS: Record<string, ProviderConfig> = {
     provider: 'bailian',
     icon: Bailian,
     color: 'bg-green-100 text-green-800 border-green-200',
-    channelTypes: ['bailian', 'bailian_anthropic'],
+    channelTypes: ['bailian', 'bailian_anthropic', 'bailian_responses'],
   },
   openrouter: {
     provider: 'openrouter',
