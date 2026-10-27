@@ -12,7 +12,6 @@ var fastModelPairs = []fastModelPair{
 	{model: "gpt-6-astra", alias: "gpt-6-astra-fast"},
 	{model: "gpt-6-sol", alias: "gpt-6-sol-fast"},
 	{model: "gpt-6-luna", alias: "gpt-6-luna-fast"},
-	{model: "gpt-6.1-sol", alias: "gpt-6.1-sol-fast"},
 }
 
 // DefaultModels returns a static list of Codex-capable model IDs.
@@ -48,7 +47,7 @@ const (
 	RedirectURI = "http://localhost:1455/auth/callback"
 	Scopes      = "openid profile email offline_access"
 
-	codexDefaultVersion = "0.159.2"
+	codexDefaultVersion = "0.156.0"
 
 	// fabricatedBetaFeatures mirrors the X-Codex-Beta-Features value the current
 	// Codex CLI sends, used when a non-Codex inbound client omits the header.
