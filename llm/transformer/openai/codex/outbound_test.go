@@ -54,6 +54,7 @@ func TestCodexOutbound_DefaultUserAgentHidesInboundClientUA(t *testing.T) {
 // TestCodexOutbound_DefaultUserAgentIsCodexLike keeps the fake identity
 // consistent with the Version header the transformer fabricates.
 func TestCodexOutbound_DefaultUserAgentIsCodexLike(t *testing.T) {
+	assert.Equal(t, "0.164.0", codexDefaultVersion)
 	assert.Equal(t, "codex_cli_rs/"+codexDefaultVersion, codexDefaultUserAgent)
 }
 

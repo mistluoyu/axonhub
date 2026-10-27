@@ -35,6 +35,7 @@ builds:
 
 release:
   draft: false
+  prerelease: false
   extra_files:
     - glob: ./config.schema.json
 
