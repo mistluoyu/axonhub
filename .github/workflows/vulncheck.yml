@@ -1,15 +1,5 @@
 name: Govulncheck
 on:
-  push:
-    branches:
-      - 'unstable'
-      - 'release/**'
-  pull_request:
-    branches:
-      - 'unstable'
-      - 'release/**'
-  schedule:
-    - cron: '23 5 * * *'
   workflow_dispatch:
 
 permissions:
