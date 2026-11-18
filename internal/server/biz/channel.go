@@ -28,6 +28,7 @@ import (
 	"github.com/looplj/axonhub/internal/pkg/xerrors"
 	"github.com/looplj/axonhub/internal/scopes"
 	"github.com/looplj/axonhub/internal/server/biz/provider_quota"
+	"github.com/looplj/axonhub/internal/server/events"
 	"github.com/looplj/axonhub/internal/server/scheduler"
 	"github.com/looplj/axonhub/llm/httpclient"
 	"github.com/looplj/axonhub/llm/transformer"
@@ -98,20 +99,27 @@ type Channel struct {
 type ChannelServiceParams struct {
 	fx.In
 
+	ModelCache *ModelCacheService
+
 	CacheConfig     xcache.Config
 	Ent             *ent.Client
 	SystemService   *SystemService
 	WebhookNotifier *WebhookNotifier
-	HttpClient      *httpclient.HttpClient
+	// EventBus publishes plugin events. Nil skips publication; the business
+	// operation still runs. Tests construct the service without a bus.
+	EventBus   *events.Bus `optional:"true"`
+	HttpClient *httpclient.HttpClient
 }
 
 func NewChannelService(params ChannelServiceParams) *ChannelService {
 	svc := &ChannelService{
+		modelCache: params.ModelCache,
 		AbstractService: &AbstractService{
 			db: params.Ent,
 		},
 		SystemService:             params.SystemService,
 		WebhookNotifier:           params.WebhookNotifier,
+		EventBus:                  params.EventBus,
 		httpClient:                params.HttpClient,
 		channelPerfMetrics:        make(map[int]*channelMetrics),
 		apiKeyErrorCounts:         make(map[int]map[string]map[int]int),
@@ -163,8 +171,13 @@ func (svc *ChannelService) Stop() {
 type ChannelService struct {
 	*AbstractService
 
+	modelCache *ModelCacheService
+
 	SystemService   *SystemService
 	WebhookNotifier *WebhookNotifier
+	// EventBus publishes plugin events. Nil skips publication and does not
+	// skip the business operation.
+	EventBus *events.Bus
 
 	httpClient *httpclient.HttpClient
 
@@ -603,6 +616,10 @@ func (svc *ChannelService) createChannel(ctx context.Context, input ent.CreateCh
 			return nil, fmt.Errorf("invalid rate limit: %w", err)
 		}
 
+		if err := NormalizeResponseTimeout(input.Settings); err != nil {
+			return nil, fmt.Errorf("invalid response timeout: %w", err)
+		}
+
 		if err := NormalizeRetryableStatusCodes(input.Settings); err != nil {
 			return nil, err
 		}
@@ -1027,6 +1044,10 @@ func (svc *ChannelService) UpdateChannel(ctx context.Context, id int, input *ent
 
 		if err := ValidateRateLimit(input.Settings.RateLimit); err != nil {
 			return nil, fmt.Errorf("invalid rate limit: %w", err)
+		}
+
+		if err := NormalizeResponseTimeout(input.Settings); err != nil {
+			return nil, fmt.Errorf("invalid response timeout: %w", err)
 		}
 
 		if err := NormalizeRetryableStatusCodes(input.Settings); err != nil {

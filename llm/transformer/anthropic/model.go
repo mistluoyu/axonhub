@@ -201,20 +201,24 @@ type ToolChoice struct {
 
 // Tool represents a tool definition for Anthropic API.
 type Tool struct {
-	// Type is used for native tools (e.g., "web_search_20250305").
-	// For custom/function tools, this field is omitted.
+	// Type is used for native tools (e.g., "web_search_20250305" or
+	// "web_search_20260209"). For custom/function tools, this field is omitted.
 	Type         string          `json:"type,omitempty"`
 	Name         string          `json:"name"`
 	Description  string          `json:"description,omitempty"`
 	InputSchema  json.RawMessage `json:"input_schema,omitempty"`
 	CacheControl *CacheControl   `json:"cache_control,omitempty"`
 
-	// Params for web_search_20250305 tool.
+	// Params for native web_search tools (web_search_20250305 and later).
 
 	// MaxUses Maximum number of times the tool can be used in the API request.
 	MaxUses *int64 `json:"max_uses,omitempty"`
 	// When true, guarantees schema validation on tool names and inputs
 	Strict *bool `json:"strict,omitempty"`
+	// AllowedCallers restricts which callers may invoke this tool, e.g.
+	// ["direct"] or ["code_execution_20250825"]. Anthropic documents it on
+	// custom/function tool definitions; keep it off the wire when unset.
+	AllowedCallers []string `json:"allowed_callers,omitempty"`
 	// AllowedDomains If provided, only these domains will be included in results. Cannot be used
 	// alongside `blocked_domains`.
 	AllowedDomains []string `json:"allowed_domains,omitempty"`

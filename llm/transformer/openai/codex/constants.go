@@ -1,11 +1,19 @@
 package codex
 
+var codexImageModels = []string{
+	"gpt-image-2",
+	"gpt-image-2.5-sunburst",
+	"gpt-image-2.5-flare",
+	"gpt-image-2.6-sunburst",
+	"gpt-image-2.6-flare",
+}
+
 // DefaultModels returns a static list of Codex-capable model IDs.
 //
 // The ChatGPT Codex backend does not provide a stable public /models endpoint.
 // CLIProxyAPI keeps a local registry; we mirror that approach to power AxonHub "Fetch Models".
 func DefaultModels() []string {
-	return []string{
+	models := []string{
 		"gpt-5.6-sol",
 		"gpt-5.6-terra",
 		"gpt-5.6-luna",
@@ -13,10 +21,9 @@ func DefaultModels() []string {
 		"gpt-6-sol",
 		"gpt-6-luna",
 		"gpt-6.1-sol",
-		"gpt-6.1-terra",
 		"codex-auto-review",
-		"gpt-image-2",
 	}
+	return append(models, codexImageModels...)
 }
 
 const (
@@ -28,7 +35,7 @@ const (
 	RedirectURI = "http://localhost:1455/auth/callback"
 	Scopes      = "openid profile email offline_access"
 
-	codexDefaultVersion = "0.164.0"
+	codexDefaultVersion = "0.159.0"
 
 	// codexDefaultUserAgent is the Codex-client-like User-Agent the transformer
 	// presents upstream when it owns the outbound identity (i.e. when the
