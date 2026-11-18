@@ -34,7 +34,8 @@ func TestCodexModelsIncludeImageModels(t *testing.T) {
 		// Then its original order is retained with all supported image models appended.
 		require.Equal(t, []string{
 			"gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna",
-			"gpt-6-astra", "gpt-6-sol", "gpt-6-luna", "gpt-6.1-sol", "gpt-6.2-astra", "gpt-6.2-sol",
+			"gpt-6-astra", "gpt-6-sol", "gpt-6-luna",
+			"gpt-6.1-sol", "gpt-6.1-terra", "gpt-6.2-astra", "gpt-6.2-sol",
 			"codex-auto-review",
 			"gpt-image-2", "gpt-image-2.5-sunburst", "gpt-image-2.5-flare", "gpt-image-2.6-sunburst", "gpt-image-2.6-flare",
 		}, models)
