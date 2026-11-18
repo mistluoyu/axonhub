@@ -43,6 +43,7 @@ func TestCodexOutbound_DefaultUserAgentHidesInboundClientUA(t *testing.T) {
 	req, err := outbound.TransformRequest(ctx, llmReq)
 	require.NoError(t, err)
 
+	assert.Equal(t, "0.169.1", req.Headers.Get("Version"))
 	assert.Equal(t, codexDefaultUserAgent, req.Headers.Get("User-Agent"))
 	assert.NotEqual(t, clientUA, req.Headers.Get("User-Agent"))
 

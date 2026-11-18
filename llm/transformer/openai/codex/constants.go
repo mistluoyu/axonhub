@@ -21,6 +21,8 @@ func DefaultModels() []string {
 		"gpt-6-sol",
 		"gpt-6-luna",
 		"gpt-6.1-sol",
+		"gpt-6.2-astra",
+		"gpt-6.2-sol",
 		"codex-auto-review",
 	}
 	return append(models, codexImageModels...)
@@ -35,7 +37,7 @@ const (
 	RedirectURI = "http://localhost:1455/auth/callback"
 	Scopes      = "openid profile email offline_access"
 
-	codexDefaultVersion = "0.159.0"
+	codexDefaultVersion = "0.169.1"
 
 	// codexDefaultUserAgent is the Codex-client-like User-Agent the transformer
 	// presents upstream when it owns the outbound identity (i.e. when the
